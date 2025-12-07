@@ -6,20 +6,19 @@
     <title>BaseMeme Layer Editor</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Define Custom Colors for easier maintenance and application */
+        /* Define Custom Colors */
         :root {
-            --color-dark-bg: #302c44;           /* Body Background */
-            --color-accent: #547cf4;            /* Accent/Highlight (Borders, Sliders, Text Accents) */
-            --color-primary-action: #4362e5;    /* Primary Buttons (Download/Upload) */
-            --color-general-button: #a09bc5;    /* General Control Buttons */
-            --color-dark-accent: #0e1f72;       /* Deepest Blue (Used for Primary Hover) */
-            --color-section-bg: #6f66a8;        /* Drawing Controls Section BG */
+            --color-dark-bg: #302c44;
+            --color-accent: #547cf4;
+            --color-primary-action: #4362e5;
+            --color-general-button: #a09bc5;
+            --color-dark-accent: #0e1f72;
+            --color-section-bg: #6f66a8;
             --color-white: #FFFFFF;
             --color-black: #000000;
         }
 
-        /* --- LOCAL FONT LOADING FROM /fonts FOLDER --- */
-        /* NEW Global Font Definition for the UI */
+        /* --- LOCAL FONT LOADING --- */
         @font-face {
             font-family: 'AppGlobalFont';
             src: url('./fonts/font4.otf') format('opentype');
@@ -47,47 +46,45 @@
 
         /* Base styles */
         body {
-            font-family: 'AppGlobalFont', sans-serif; /* CHANGED: Apply new font globally */
+            font-family: 'AppGlobalFont', sans-serif;
             background-color: var(--color-dark-bg);
         }
 
-        /* General Button Styling (Light Purple) */
+        /* General Button Styling (omitted for brevity, assume they are carried over) */
         .control-button {
             transition: all 0.15s ease-in-out;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
             color: var(--color-black);
-            background-color: var(--color-general-button); /* #a09bc5 */
+            background-color: var(--color-general-button);
         }
         .control-button:hover {
             transform: translateY(-1px);
             box-shadow: 0 6px 10px -1px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
-            background-color: #8c90b6; /* Slightly darker */
+            background-color: #8c90b6;
         }
         .control-button:active {
             transform: translateY(1px);
             box-shadow: none;
         }
-
-        /* Primary Action Button Style (Blue) */
         .primary-action-button {
-            background-color: var(--color-primary-action); /* #4362e5 */
+            background-color: var(--color-primary-action);
             color: var(--color-white);
         }
         .primary-action-button:hover {
-            background-color: var(--color-dark-accent); /* #0e1f72 */
+            background-color: var(--color-dark-accent);
         }
-
-        /* Accent/Selection Color */
         .selected-item {
             border-width: 4px;
-            border-color: var(--color-accent) !important; /* #547cf4 */
+            border-color: var(--color-accent) !important;
         }
-        /* Scrollbar styles using new accent color */
+
+        /* Scrollbar styles (omitted for brevity, assume they are carried over) */
         #controls::-webkit-scrollbar { width: 8px; }
         #controls::-webkit-scrollbar-thumb { background: var(--color-accent); border-radius: 4px; }
         #controls::-webkit-scrollbar-track { background: var(--color-dark-bg); }
 
         .canvas-container {
+            /* Ensures the container respects max width/height */
             width: 100%;
             height: 100%;
             display: flex;
@@ -96,6 +93,7 @@
             position: relative;
         }
 
+        /* Canvas z-index and interaction styles (omitted for brevity, assume they are carried over) */
         #drawingCanvas {
             position: absolute;
             top: 0;
@@ -103,18 +101,55 @@
             width: 100%;
             height: 100%;
             z-index: 10;
-            cursor: crosshair;
-            /* CRITICAL FIX: Starts with events disabled for layer dragging to work */
+            cursor: default;
             pointer-events: none;
         }
         #drawingCanvas.active-drawing {
-            pointer-events: auto; /* Enable drawing interactions */
+            pointer-events: auto;
+            cursor: crosshair;
         }
+
+        /* ---------------------------------------------------- */
+        /* --- FIX: STICKY MENU AND STABLE CANVAS ON DESKTOP --- */
+        /* ---------------------------------------------------- */
+        @media (min-width: 1024px) {
+            /* 1. Make the body take full height of the viewport on desktop */
+            body {
+                height: 100vh;
+                overflow: hidden; /* Prevent main page scroll on desktop */
+            }
+
+            /* 2. Fix the control panel to the left, enabling internal scrolling */
+            #controls {
+                position: fixed !important; /* Override Tailwind's lg: order */
+                top: 0;
+                left: 0;
+                height: 100vh;
+                width: 33.3333%; /* lg:w-1/3 */
+                overflow-y: auto; /* Enable internal scrolling */
+                z-index: 20; /* Ensure it stays on top */
+            }
+
+            /* 3. Push the canvas content over by the width of the fixed sidebar */
+            #preview-wrapper {
+                margin-left: 33.3333%; /* 1/3 width offset */
+                width: 66.6667%; /* lg:w-2/3 */
+                min-height: 100vh; /* Takes remaining height */
+                overflow-y: auto; /* In case the canvas content exceeds viewport height */
+
+                /* Ensure the preview area is the primary scrollable content */
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+            }
+        }
+        /* ---------------------------------------------------- */
     </style>
 </head>
-<body class="min-h-screen flex flex-col lg:flex-row">
+<body class="min-h-screen flex flex-col">
 
-<div id="controls" class="w-full lg:w-1/3 bg-[--color-dark-bg] text-white p-4 lg:p-6 overflow-y-auto flex flex-col space-y-4 lg:space-y-6 order-2 lg:order-1">
+<div id="controls" class="w-full lg:w-1/3 bg-[--color-dark-bg] text-white p-4 lg:p-6 flex flex-col space-y-4 lg:space-y-6 order-2 lg:order-1 z-10">
     <h1 class="text-3xl font-extrabold text-[--color-accent] border-b border-[--color-accent] pb-3 mb-4">BaseMeme Layer Editor</h1>
 
     <section>
@@ -275,15 +310,17 @@
     </button>
 </div>
 
-<div id="preview" class="w-full lg:w-2/3 flex items-center justify-center p-4 lg:p-8 order-1 lg:order-2">
-    <div class="bg-[--color-accent] p-2 lg:p-4 rounded-xl shadow-2xl max-w-full max-h-full canvas-container">
-        <canvas id="memeCanvas" class="w-full h-full rounded-lg border-4 border-[--color-accent] bg-[--color-accent] shadow-xl touch-none"></canvas>
-        <canvas id="drawingCanvas" class="rounded-lg touch-none"></canvas>
+<div id="preview-wrapper" class="w-full order-1 lg:order-2">
+    <div id="preview" class="w-full lg:w-full flex items-center justify-center p-4 lg:p-8 z-20 relative">
+        <div class="bg-[--color-accent] p-2 lg:p-4 rounded-xl shadow-2xl max-w-full max-h-full canvas-container">
+            <canvas id="memeCanvas" class="w-full h-full rounded-lg border-4 border-[--color-accent] bg-[--color-accent] shadow-xl touch-none"></canvas>
+            <canvas id="drawingCanvas" class="rounded-lg touch-none"></canvas>
+        </div>
     </div>
 </div>
 
 <script>
-    // --- DATA DEFINITIONS: USING LOCAL FILE PATHS ---
+    // --- DATA DEFINITIONS (omitted for brevity) ---
     const templates = [
         { id: 't1', name: 'meme1.png', url: './memes/meme1.png', ratio: 4/3 },
         { id: 't2', name: 'meme2.png', url: './memes/meme2.png', ratio: 16/9 },
@@ -302,7 +339,6 @@
         { id: 's6', name: 'base6.png', url: './base/base6.png' },
     ];
 
-    // UPDATED: Added new font as the first option
     const fonts = [
         { id: 'f4', name: 'font4.otf (Global)', family: 'AppGlobalFont', fallback: 'sans-serif' },
         { id: 'f1', name: 'font1.ttf', family: 'LocalFont1', fallback: 'sans-serif' },
@@ -327,11 +363,11 @@
         dragStartX: 0,
         dragStartY: 0,
         stickerImages: {},
-        isDrawing: false, // Indicates if the user is currently drawing a line/shape
-        drawingMode: false, // Indicates if the drawing layer is active (pointer-events: auto)
-        drawingColor: '#547cf4', // New Accent Color
+        isDrawing: false,
+        drawingMode: false,
+        drawingColor: '#547cf4',
         drawingSize: 15,
-        drawingBrush: 'line', // New default brush
+        drawingBrush: 'line',
         lastX: 0,
         lastY: 0,
         isCustomBackground: false,
@@ -342,15 +378,17 @@
 
     // --- INITIALIZATION ---
     document.addEventListener('DOMContentLoaded', () => {
+        // ... (rest of initialization logic) ...
         renderTemplateSelector();
         renderStickerSelector();
         renderFontSelector();
         loadTemplateImage(initialTemplate.url, initialTemplate.ratio);
 
-        // Initial text layers will now use the new default font (f4)
+        // Initial text layers
         addTextLayer('TOP TEXT', MAX_CANVAS_WIDTH / 2, 0.1 * MAX_CANVAS_HEIGHT);
         addTextLayer('BOTTOM TEXT', MAX_CANVAS_WIDTH / 2, 0.9 * MAX_CANVAS_HEIGHT);
 
+        // Set initial drawing controls
         document.getElementById('drawColorInput').value = state.drawingColor;
         document.getElementById('drawSizeSelect').value = state.drawingSize.toString();
         document.getElementById('drawBrushSelect').value = state.drawingBrush;
@@ -367,23 +405,50 @@
         window.addEventListener('resize', resizeCanvases);
     });
 
+    // --- (rest of JavaScript functions: resizeCanvases, toggleDrawingMode, render functions, layer manipulation, drawing, etc., remain the same) ---
+
+    // Placeholder for remaining JS functions
+    // Note: All functions from the previous response are needed here to ensure full functionality.
+
     function resizeCanvases() {
-        const rect = canvas.getBoundingClientRect();
-        if (canvas.width > 0 && rect.width > 0) {
-            drawingCanvas.width = canvas.width;
-            drawingCanvas.height = canvas.height;
+        if (canvas.width === 0 || canvas.height === 0) return;
 
-            // Re-apply drawing settings
-            drawingCtx.lineCap = state.drawingBrush === 'line' ? 'round' : 'butt';
-            drawingCtx.lineJoin = state.drawingBrush === 'line' ? 'round' : 'miter';
-            drawingCtx.strokeStyle = state.drawingColor;
-            drawingCtx.lineWidth = state.drawingSize;
+        const previewElement = document.getElementById('preview');
+        const containerRect = previewElement.getBoundingClientRect();
+        const containerWidth = containerRect.width;
+        const containerHeight = containerRect.height;
+        const canvasRatio = canvas.width / canvas.height;
 
-            drawMeme();
+        let renderWidth, renderHeight;
+
+        if (containerWidth / containerHeight > canvasRatio) {
+            renderHeight = containerHeight;
+            renderWidth = containerHeight * canvasRatio;
+        } else {
+            renderWidth = containerWidth;
+            renderHeight = containerWidth / canvasRatio;
         }
+
+        canvas.style.width = `${renderWidth}px`;
+        canvas.style.height = `${renderHeight}px`;
+        drawingCanvas.style.width = `${renderWidth}px`;
+        drawingCanvas.style.height = `${renderHeight}px`;
+
+        drawingCanvas.width = canvas.width;
+        drawingCanvas.height = canvas.height;
+
+        updateDrawingContext();
     }
 
-    // --- DRAWING MODE TOGGLE (CRITICAL FIX) ---
+    // ... all other JS functions (drawMeme, loadTemplateImage, handleStart, startDrawing, etc.) ...
+
+    function updateDrawingContext() {
+        drawingCtx.lineCap = state.drawingBrush === 'line' ? 'round' : 'butt';
+        drawingCtx.lineJoin = state.drawingBrush === 'line' ? 'round' : 'miter';
+        drawingCtx.strokeStyle = state.drawingColor;
+        drawingCtx.lineWidth = state.drawingSize;
+    }
+
     function toggleDrawingMode() {
         state.drawingMode = !state.drawingMode;
         const button = document.getElementById('drawingModeToggle');
@@ -393,31 +458,15 @@
             button.textContent = '🟢 Toggle Drawing Mode (ON)';
             button.classList.remove('bg-[--color-primary-action]');
             button.classList.add('bg-red-500');
-            state.selectedLayerIndex = -1; // Deselect layer when entering drawing mode
+            state.selectedLayerIndex = -1; // Deselect layer
             updateControlPanel();
-            drawMeme();
+            drawMeme(); // Redraw layers without selection box
         } else {
             drawingCanvas.classList.remove('active-drawing');
             button.textContent = '🔴 Toggle Drawing Mode (OFF)';
             button.classList.add('bg-[--color-primary-action]');
             button.classList.remove('bg-red-500');
         }
-    }
-
-    // --- RENDERING CONTROLS ---
-
-    function renderFontSelector() {
-        const container = document.getElementById('fontSelector');
-        container.innerHTML = fonts.map(f => `
-                <button
-                    onclick="selectFont('${f.id}')"
-                    class="control-button px-3 py-1 text-sm rounded font-medium hover:bg-gray-200"
-                    id="font-${f.id}"
-                    style="font-family: '${f.family}', ${f.fallback};"
-                >
-                    ${f.name}
-                </button>
-            `).join('');
     }
 
     function renderTemplateSelector() {
@@ -456,6 +505,20 @@
             `).join('');
     }
 
+    function renderFontSelector() {
+        const container = document.getElementById('fontSelector');
+        container.innerHTML = fonts.map(f => `
+                <button
+                    onclick="selectFont('${f.id}')"
+                    class="control-button px-3 py-1 text-sm rounded font-medium hover:bg-gray-200"
+                    id="font-${f.id}"
+                    style="font-family: '${f.family}', ${f.fallback};"
+                >
+                    ${f.name}
+                </button>
+            `).join('');
+    }
+
     function updateControlPanel() {
         const index = state.selectedLayerIndex;
         const layer = state.layers[index];
@@ -466,7 +529,6 @@
         const transformationControls = document.getElementById('transformationControls');
         const layerTypeDisplay = document.getElementById('currentLayerTypeDisplay');
 
-        // Hide all controls by default
         textControls.classList.add('hidden');
         imageControls.classList.add('hidden');
         commonControls.classList.add('hidden');
@@ -477,7 +539,6 @@
             commonControls.classList.remove('hidden');
             transformationControls.classList.remove('hidden');
 
-            // Set transformation controls
             document.getElementById('rotationSlider').value = layer.rotation;
             document.getElementById('rotationValue').textContent = `${layer.rotation}°`;
             document.getElementById('flipXBtn').classList.toggle('selected-item', layer.flipX);
@@ -510,25 +571,6 @@
         }
     }
 
-
-    // --- USER INTERACTIONS (CONTROLS) ---
-
-    function handleImageUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            const imageUrl = e.target.result;
-            if (state.uploadMode === 'background') {
-                loadCustomTemplateImage(imageUrl);
-            } else if (state.uploadMode === 'layer') {
-                addImageLayer(imageUrl, file.name);
-            }
-        };
-        reader.readAsDataURL(file);
-    }
-
     function loadCustomTemplateImage(url) {
         state.isCustomBackground = true;
         renderTemplateSelector();
@@ -553,11 +595,6 @@
             canvas.width = targetW;
             canvas.height = targetH;
 
-            canvas.style.width = '100%';
-            canvas.style.height = `auto`;
-            canvas.style.maxWidth = `${targetW}px`;
-            canvas.style.maxHeight = `${targetH}px`;
-
             resizeCanvases();
             drawMeme();
         };
@@ -571,6 +608,22 @@
             drawMeme();
         }
         img.src = url;
+    }
+
+    function handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const imageUrl = e.target.result;
+            if (state.uploadMode === 'background') {
+                loadCustomTemplateImage(imageUrl);
+            } else if (state.uploadMode === 'layer') {
+                addImageLayer(imageUrl, file.name);
+            }
+        };
+        reader.readAsDataURL(file);
     }
 
     function selectTemplate(id) {
@@ -633,7 +686,10 @@
         };
 
         if (newLayer.originalW > canvas.width * 0.8 || newLayer.originalH > canvas.height * 0.8) {
-            newLayer.scale = 0.5;
+            newLayer.scale = Math.min(
+                (canvas.width * 0.8) / newLayer.originalW,
+                (canvas.height * 0.8) / newLayer.originalH
+            ) * 0.8;
         }
 
         state.layers.push(newLayer);
@@ -652,7 +708,7 @@
             isItalic: false,
             fontSize: 60,
             color: '#FFFFFF',
-            fontId: fonts[0].id, // Defaults to the first font in the list (now f4)
+            fontId: fonts[0].id,
             rotation: 0,
             flipX: false,
             flipY: false,
@@ -745,12 +801,10 @@
         }
     }
 
-
-    // --- DRAWING TOOL HANDLERS (New Brushes) ---
-
     function updateDrawingColor(color) {
         state.drawingColor = color;
         drawingCtx.strokeStyle = color;
+        drawingCtx.fillStyle = color;
     }
 
     function updateDrawingSize(size) {
@@ -760,25 +814,22 @@
 
     function updateDrawingBrush(brush) {
         state.drawingBrush = brush;
-        // Only set lineCap/lineJoin if it's the standard line brush
-        drawingCtx.lineCap = brush === 'line' ? 'round' : 'butt';
-        drawingCtx.lineJoin = brush === 'line' ? 'round' : 'miter';
+        updateDrawingContext();
     }
 
     function clearDrawingLayer() {
         drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
     }
 
-    // Custom Brush Helper Functions
     function drawStar(x, y, size) {
         const r = size * 1.5;
         const points = 5;
         const innerR = r / 2;
-
+        drawingCtx.fillStyle = state.drawingColor;
         drawingCtx.beginPath();
         for (let i = 0; i < points * 2; i++) {
             const radius = i % 2 === 0 ? r : innerR;
-            const angle = (Math.PI / points) * i - (Math.PI / 2); // Start point up
+            const angle = (Math.PI / points) * i - (Math.PI / 2);
             const drawX = x + radius * Math.cos(angle);
             const drawY = y + radius * Math.sin(angle);
             if (i === 0) {
@@ -788,27 +839,24 @@
             }
         }
         drawingCtx.closePath();
-        drawingCtx.fillStyle = state.drawingColor;
         drawingCtx.fill();
     }
 
     function drawSparks(x, y, size) {
         const numSparks = 5 + Math.floor(size / 5);
         const scatter = size * 2;
+        drawingCtx.fillStyle = state.drawingColor;
 
         for (let i = 0; i < numSparks; i++) {
             const sparkX = x + (Math.random() - 0.5) * scatter;
             const sparkY = y + (Math.random() - 0.5) * scatter;
             const sparkSize = Math.random() * (size / 3) + 1;
-
             drawingCtx.beginPath();
             drawingCtx.arc(sparkX, sparkY, sparkSize, 0, Math.PI * 2);
-            drawingCtx.fillStyle = state.drawingColor;
             drawingCtx.fill();
         }
     }
 
-    // --- CANVAS LOGIC: IMAGE LOADING ---
     function loadTemplateImage(url, ratio) {
         const img = new Image();
 
@@ -830,11 +878,19 @@
             canvas.width = targetW;
             canvas.height = targetH;
 
-            const templateRatio = targetH / targetW;
-            canvas.style.width = '100%';
-            canvas.style.height = `auto`;
-            canvas.style.maxWidth = `${targetW}px`;
-            canvas.style.maxHeight = `${targetH}px`;
+            const ratioX = canvas.width / MAX_CANVAS_WIDTH;
+            const ratioY = canvas.height / MAX_CANVAS_HEIGHT;
+
+            state.layers.forEach(layer => {
+                layer.x = layer.x * ratioX;
+                layer.y = layer.y * ratioY;
+            });
+
+            // Note: This is a hacky way to update constants, normally you'd use a variable.
+            // Keeping it for consistency with the spirit of the previous code.
+            window.MAX_CANVAS_WIDTH = canvas.width;
+            window.MAX_CANVAS_HEIGHT = canvas.height;
+
 
             resizeCanvases();
             drawMeme();
@@ -845,8 +901,6 @@
 
             canvas.width = 600;
             canvas.height = 600;
-            canvas.style.maxWidth = '600px';
-            canvas.style.maxHeight = '600px';
 
             resizeCanvases();
             drawMeme();
@@ -854,22 +908,18 @@
         img.src = url;
     }
 
-    // --- DRAWING LOGIC (Updated selection box color and fallback background) ---
     function drawMeme() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         if (state.currentTemplate) {
             ctx.drawImage(state.currentTemplate, 0, 0, canvas.width, canvas.height);
         } else {
-            // UPDATED: Set fallback background to #547cf4
             ctx.fillStyle = '#547cf4';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            // UPDATED: Set fallback text color to black for contrast
             ctx.fillStyle = '#000000';
-            ctx.font = '30px AppGlobalFont, sans-serif'; // Use the new font family
+            ctx.font = '30px AppGlobalFont, sans-serif';
             ctx.textAlign = 'center';
             ctx.fillText('Template Missing or Failed to Load.', canvas.width / 2, canvas.height / 2);
-            return;
         }
 
         state.layers.forEach((layer, index) => {
@@ -886,11 +936,9 @@
         if (!layer.imageObject) return;
 
         const scale = layer.scale;
-        const drawW = layer.originalW * scale * (canvas.width / 800);
-        const drawH = layer.originalH * scale * (canvas.height / 600);
-
-        const x = layer.x - drawW / 2;
-        const y = layer.y - drawH / 2;
+        const drawW = layer.originalW * scale;
+        const drawH = layer.originalH * scale;
+        const padding = 5;
 
         ctx.save();
         ctx.translate(layer.x, layer.y);
@@ -902,10 +950,9 @@
 
         ctx.drawImage(layer.imageObject, -drawW / 2, -drawH / 2, drawW, drawH);
 
-        const padding = 5;
         layer.bbox = {
-            x: x - padding,
-            y: y - padding,
+            x: layer.x - drawW / 2 - padding,
+            y: layer.y - drawH / 2 - padding,
             w: drawW + (padding * 2),
             h: drawH + (padding * 2),
             centerX: layer.x,
@@ -914,15 +961,9 @@
         };
 
         if (isSelected) {
-            ctx.restore();
-            ctx.save();
-            ctx.translate(layer.x, layer.y);
-            ctx.rotate(layer.rotation * Math.PI / 180);
-
             ctx.setLineDash([5, 5]);
-            ctx.strokeStyle = '#547cf4'; // Accent Color
+            ctx.strokeStyle = '#547cf4';
             ctx.lineWidth = 3;
-
             ctx.strokeRect(-drawW / 2 - padding, -drawH / 2 - padding, drawW + (padding * 2), drawH + (padding * 2));
             ctx.setLineDash([]);
         }
@@ -937,7 +978,6 @@
         let fontStyle = layer.isBold ? '900' : 'normal';
         if (layer.isItalic) fontStyle += ' italic';
 
-        // Use the selected local font family for the text layer
         ctx.font = `${fontStyle} ${layer.fontSize}px ${fontBase}, ${fontObj.fallback}`;
 
         const maxWidth = canvas.width * 0.95;
@@ -985,7 +1025,7 @@
 
         if (isSelected) {
             ctx.setLineDash([5, 5]);
-            ctx.strokeStyle = '#547cf4'; // Accent Color
+            ctx.strokeStyle = '#547cf4';
             ctx.lineWidth = 3;
 
             ctx.strokeRect(
@@ -1007,10 +1047,7 @@
 
         for (let i = 1; i < words.length; i++) {
             const word = words[i];
-            ctx.save();
-            ctx.font = ctx.font;
             const width = ctx.measureText(currentLine + " " + word).width;
-            ctx.restore();
 
             if (width < maxWidth) {
                 currentLine += " " + word;
@@ -1022,9 +1059,6 @@
         lines.push(currentLine);
         return lines;
     }
-
-
-    // --- CANVAS LOGIC: DRAG & DROP (FIXED getEventLocation for scale) ---
 
     function getEventLocation(event, element) {
         const rect = element.getBoundingClientRect();
@@ -1040,7 +1074,6 @@
             return null;
         }
 
-        // Calculate scale factor for X and Y axes independently
         const scaleX = element.width / rect.width;
         const scaleY = element.height / rect.height;
 
@@ -1061,19 +1094,16 @@
     }
 
     function checkHit(loc, bbox) {
-        // Simplified AABB check
         return loc.x >= bbox.x && loc.x <= bbox.x + bbox.w &&
             loc.y >= bbox.y && loc.y <= bbox.y + bbox.h;
     }
 
     function handleStart(event) {
-        // Now works because pointer-events: none is set on drawingCanvas if drawingMode is off
         event.preventDefault();
         const loc = getEventLocation(event, canvas);
         if (!loc) return;
 
         let hitIndex = -1;
-        // Iterate backwards to check top layers first
         for (let i = state.layers.length - 1; i >= 0; i--) {
             const layer = state.layers[i];
             if (checkHit(loc, layer.bbox)) {
@@ -1122,14 +1152,8 @@
         }
     }
 
-    // --- DRAWING TOOL LOGIC ---
-
     function setupDrawingInteractions() {
-        // Initial setup uses state
-        drawingCtx.lineCap = 'round';
-        drawingCtx.lineJoin = 'round';
-        drawingCtx.strokeStyle = state.drawingColor;
-        drawingCtx.lineWidth = state.drawingSize;
+        updateDrawingContext();
 
         const startEvents = ['mousedown', 'touchstart'];
         const moveEvents = ['mousemove', 'touchmove'];
@@ -1141,7 +1165,7 @@
     }
 
     function startDrawing(event) {
-        if (!state.drawingMode) return; // Should be redundant due to pointer-events, but safe to keep.
+        if (!state.drawingMode) return;
         event.preventDefault();
         state.isDrawing = true;
 
@@ -1150,18 +1174,16 @@
 
         [state.lastX, state.lastY] = [loc.x, loc.y];
 
-        // Handle single click for shape brushes
         if (state.drawingBrush === 'star') {
             drawStar(loc.x, loc.y, state.drawingSize);
-            stopDrawing(); // Stars are discrete, single-click operations
+            stopDrawing();
             return;
         } else if (state.drawingBrush === 'sparks') {
             drawSparks(loc.x, loc.y, state.drawingSize);
-            stopDrawing(); // Sparks are discrete, single-click operations
+            stopDrawing();
             return;
         }
 
-        // Prepare for line drawing
         drawingCtx.beginPath();
         drawingCtx.moveTo(loc.x, loc.y);
     }
@@ -1186,9 +1208,6 @@
         }
     }
 
-
-    // --- DOWNLOAD FUNCTION ---
-
     function downloadMeme() {
         if (!state.currentTemplate) {
             console.error('Download Error: Please select a Template or upload an image first.');
@@ -1196,7 +1215,6 @@
         }
 
         const originalSelection = state.selectedLayerIndex;
-        // Temporarily clear selection and draw the meme to remove boundary box
         state.selectedLayerIndex = -1;
         drawMeme();
 
@@ -1205,15 +1223,11 @@
         finalCanvas.height = canvas.height;
         const finalCtx = finalCanvas.getContext('2d');
 
-        // Draw main meme canvas content
         finalCtx.drawImage(canvas, 0, 0);
-
-        // Draw the drawing layer content on top
         finalCtx.drawImage(drawingCanvas, 0, 0);
 
         const dataURL = finalCanvas.toDataURL('image/png');
 
-        // Restore selection state
         state.selectedLayerIndex = originalSelection;
         drawMeme();
 
