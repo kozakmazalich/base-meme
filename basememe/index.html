@@ -5,17 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BaseMeme Layer Editor</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
-
     <style>
-        /* Base styles */
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0d1117;
+        /* Define Custom Colors for easier maintenance and application */
+        :root {
+            --color-dark-bg: #302c44;           /* Body Background */
+            --color-accent: #547cf4;            /* Accent/Highlight (Borders, Sliders, Text Accents) */
+            --color-primary-action: #4362e5;    /* Primary Buttons (Download/Upload) */
+            --color-general-button: #a09bc5;    /* General Control Buttons */
+            --color-dark-accent: #0e1f72;       /* Deepest Blue (Used for Primary Hover) */
+            --color-section-bg: #6f66a8;        /* Drawing Controls Section BG */
+            --color-white: #FFFFFF;
+            --color-black: #000000;
         }
 
         /* --- LOCAL FONT LOADING FROM /fonts FOLDER --- */
-        /* To add font4.ttf, you would add a similar @font-face rule here */
+        /* NEW Global Font Definition for the UI */
+        @font-face {
+            font-family: 'AppGlobalFont';
+            src: url('./fonts/font4.otf') format('opentype');
+            font-weight: normal;
+            font-style: normal;
+        }
         @font-face {
             font-family: 'LocalFont1';
             src: url('./fonts/font1.ttf') format('truetype');
@@ -35,24 +45,47 @@
             font-style: normal;
         }
 
+        /* Base styles */
+        body {
+            font-family: 'AppGlobalFont', sans-serif; /* CHANGED: Apply new font globally */
+            background-color: var(--color-dark-bg);
+        }
+
+        /* General Button Styling (Light Purple) */
         .control-button {
             transition: all 0.15s ease-in-out;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+            color: var(--color-black);
+            background-color: var(--color-general-button); /* #a09bc5 */
         }
         .control-button:hover {
             transform: translateY(-1px);
+            box-shadow: 0 6px 10px -1px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+            background-color: #8c90b6; /* Slightly darker */
         }
         .control-button:active {
             transform: translateY(1px);
             box-shadow: none;
         }
+
+        /* Primary Action Button Style (Blue) */
+        .primary-action-button {
+            background-color: var(--color-primary-action); /* #4362e5 */
+            color: var(--color-white);
+        }
+        .primary-action-button:hover {
+            background-color: var(--color-dark-accent); /* #0e1f72 */
+        }
+
+        /* Accent/Selection Color */
         .selected-item {
             border-width: 4px;
-            border-color: #3b82f6 !important;
+            border-color: var(--color-accent) !important; /* #547cf4 */
         }
+        /* Scrollbar styles using new accent color */
         #controls::-webkit-scrollbar { width: 8px; }
-        #controls::-webkit-scrollbar-thumb { background: #374151; border-radius: 4px; }
-        #controls::-webkit-scrollbar-track { background: #1f2937; }
+        #controls::-webkit-scrollbar-thumb { background: var(--color-accent); border-radius: 4px; }
+        #controls::-webkit-scrollbar-track { background: var(--color-dark-bg); }
 
         .canvas-container {
             width: 100%;
@@ -60,89 +93,135 @@
             display: flex;
             justify-content: center;
             align-items: center;
-        }
-        @media (max-width: 1024px) {
-            #preview {
-                min-height: 400px;
-            }
+            position: relative;
         }
 
-        /* Color input styling */
-        input[type="color"] {
-            -webkit-appearance: none;
-            border: none;
-            padding: 0;
-            overflow: hidden;
+        #drawingCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            cursor: crosshair;
+            /* CRITICAL FIX: Starts with events disabled for layer dragging to work */
+            pointer-events: none;
         }
-        input[type="color"]::-webkit-color-swatch-wrapper {
-            padding: 0;
-        }
-        input[type="color"]::-webkit-color-swatch {
-            border: none;
+        #drawingCanvas.active-drawing {
+            pointer-events: auto; /* Enable drawing interactions */
         }
     </style>
 </head>
 <body class="min-h-screen flex flex-col lg:flex-row">
 
-<!-- Left Panel: Controls -->
-<div id="controls" class="w-full lg:w-1/3 bg-gray-900 text-white p-4 lg:p-6 overflow-y-auto flex flex-col space-y-4 lg:space-y-6 order-2 lg:order-1">
-    <h1 class="text-3xl font-extrabold text-blue-400 border-b border-gray-700 pb-3 mb-4">BaseMeme Layer Editor</h1>
+<div id="controls" class="w-full lg:w-1/3 bg-[--color-dark-bg] text-white p-4 lg:p-6 overflow-y-auto flex flex-col space-y-4 lg:space-y-6 order-2 lg:order-1">
+    <h1 class="text-3xl font-extrabold text-[--color-accent] border-b border-[--color-accent] pb-3 mb-4">BaseMeme Layer Editor</h1>
 
-    <!-- 1. Select Template (Background) from /memes -->
     <section>
-        <h2 class="text-xl font-bold mb-3 text-blue-300">1. Template Background (Folder: /memes)</h2>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">1. Upload Images</h2>
+        <div class="flex flex-col space-y-2">
+            <input type="file" id="imageUploadInput" accept="image/*" class="hidden" onchange="handleImageUpload(event)">
+
+            <button onclick="document.getElementById('imageUploadInput').click(); state.uploadMode = 'background';" class="primary-action-button control-button w-full py-2 font-bold rounded-lg">
+                ⬆️ Upload & Set as Background
+            </button>
+
+            <button onclick="document.getElementById('imageUploadInput').click(); state.uploadMode = 'layer';" class="primary-action-button control-button w-full py-2 font-bold rounded-lg">
+                🖼️ Upload & Add as Layer (Movable/Rotatable)
+            </button>
+            <p class="text-sm text-gray-200">The layered image can be selected and edited below.</p>
+        </div>
+    </section>
+
+    <hr class="border-[--color-accent]">
+
+    <section>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">2. Template Background (Folder: /memes)</h2>
         <div id="templateSelector" class="grid grid-cols-3 gap-2">
-            <!-- Templates will be rendered here -->
         </div>
     </section>
 
-    <!-- 2. Add Sticker Item from /base -->
     <section>
-        <h2 class="text-xl font-bold mb-3 text-blue-300">2. Add Sticker Item (Folder: /base)</h2>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">3. Add Sticker Item (Folder: /base)</h2>
         <div id="stickerSelector" class="grid grid-cols-3 gap-2">
-            <!-- Stickers will be rendered here -->
         </div>
     </section>
 
-    <!-- 3. Layer Management & Customization -->
-    <section class="flex-grow border-t border-gray-700 pt-4">
-        <h2 class="text-xl font-bold mb-3 text-blue-300">3. Edit Selected Layer (<span id="currentLayerTypeDisplay">None</span>)</h2>
+    <section>
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">4. Drawing Tool (Paint)</h2>
+        <div id="drawingControls" class="space-y-4 p-3 rounded-lg bg-[--color-section-bg] border border-[--color-accent]">
 
-        <p class="text-sm text-gray-400 mb-2">Tap/click layer on image to edit.</p>
+            <button id="drawingModeToggle" onclick="toggleDrawingMode()" class="control-button w-full py-2 font-bold rounded-lg bg-[--color-primary-action] text-white">
+                🔴 Toggle Drawing Mode (OFF)
+            </button>
 
-        <!-- Container for Contextual Controls -->
+            <div class="flex items-center justify-between gap-3">
+                <div class="flex items-center space-x-2 bg-white rounded px-2 py-1 border border-black">
+                    <label for="drawColorInput" class="text-sm text-black cursor-pointer">Color:</label>
+                    <input type="color" id="drawColorInput" value="#547cf4" class="w-8 h-8 rounded cursor-pointer" oninput="updateDrawingColor(event.target.value)">
+                </div>
+
+                <div class="flex items-center space-x-2">
+                    <label for="drawSizeSelect" class="text-sm text-white">Size:</label>
+                    <select id="drawSizeSelect" onchange="updateDrawingSize(event.target.value)" class="control-button p-2 rounded text-black">
+                        <option value="5">Small</option>
+                        <option value="15" selected>Medium</option>
+                        <option value="30">Large</option>
+                        <option value="50">Huge</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <label for="drawBrushSelect" class="text-sm text-white block mb-1">Brush Style:</label>
+                <select id="drawBrushSelect" onchange="updateDrawingBrush(event.target.value)" class="control-button w-full p-2 rounded text-black">
+                    <option value="line" selected>Line (Default)</option>
+                    <option value="star">⭐ Star</option>
+                    <option value="sparks">✨ Sparks</option>
+                </select>
+            </div>
+
+            <button onclick="clearDrawingLayer()" class="control-button w-full py-2 rounded text-black font-bold">
+                🧹 Clear Drawing Layer
+            </button>
+        </div>
+    </section>
+
+    <hr class="border-[--color-accent]">
+
+    <section class="flex-grow pt-4">
+        <h2 class="text-xl font-bold mb-3 text-[--color-accent]">5. Edit Selected Layer (<span id="currentLayerTypeDisplay">None</span>)</h2>
+
+        <p class="text-sm text-gray-200 mb-2">Tap/click layer on image to edit. **(Must turn OFF Drawing Mode)**</p>
+
         <div id="contextualControls" class="space-y-4">
 
-            <!-- --- Text Controls (Visible if text layer selected) --- -->
             <div id="textControls" class="space-y-4 hidden">
-                <label for="currentTextContent" class="block text-sm font-medium text-gray-300">Text Content</label>
-                <textarea id="currentTextContent" rows="3" placeholder="Enter text content..." class="w-full p-2 rounded bg-gray-700 border border-gray-600 text-white focus:ring-blue-500 focus:border-blue-500 mt-1" oninput="updateCurrentTextContent()"></textarea>
+                <label for="currentTextContent" class="block text-sm font-medium text-white">Text Content</label>
+                <textarea id="currentTextContent" rows="3" placeholder="Enter text content..." class="w-full p-2 rounded bg-white text-black border border-black focus:ring-[--color-accent] focus:border-[--color-accent] mt-1" oninput="updateCurrentTextContent()"></textarea>
 
                 <div>
-                    <span class="block text-sm font-medium text-gray-300 mb-1">Font Family (Folder: /fonts):</span>
+                    <span class="block text-sm font-medium text-white mb-1">Font Family (Folder: /fonts):</span>
                     <div id="fontSelector" class="flex flex-wrap gap-2"></div>
                 </div>
 
-                <!-- Style Row 1: Bold, Italic, Color -->
                 <div class="flex flex-wrap items-center gap-3 mb-4">
-                    <button id="boldBtn" onclick="toggleStyle('isBold')" class="control-button px-3 py-2 rounded bg-gray-700 text-gray-300 hover:bg-gray-600">
+                    <button id="boldBtn" onclick="toggleStyle('isBold')" class="control-button px-3 py-2 rounded">
                         <span class="font-black">B</span>
                     </button>
-                    <button id="italicBtn" onclick="toggleStyle('isItalic')" class="control-button px-3 py-2 rounded bg-gray-700 text-gray-300 hover:bg-gray-600">
+                    <button id="italicBtn" onclick="toggleStyle('isItalic')" class="control-button px-3 py-2 rounded">
                         <span class="italic">I</span>
                     </button>
 
-                    <!-- Color Picker -->
-                    <div class="flex items-center space-x-2 bg-gray-700 rounded px-2 py-1 border border-gray-600">
-                        <label for="textColorInput" class="text-xs text-gray-300 cursor-pointer">Color:</label>
+                    <div class="flex items-center space-x-2 bg-white rounded px-2 py-1 border border-black">
+                        <label for="textColorInput" class="text-xs text-black cursor-pointer">Color:</label>
                         <input type="color" id="textColorInput" value="#ffffff" class="w-8 h-8 rounded cursor-pointer" oninput="updateTextColor()">
                     </div>
                 </div>
 
-                <!-- Style Row 2: Size -->
                 <div>
-                    <span class="block text-sm font-medium text-gray-300 mb-1">Font Size:</span>
-                    <select id="fontSizeSelect" onchange="updateFontSize()" class="control-button w-full p-2 rounded bg-gray-700 border border-gray-600 text-white">
+                    <span class="block text-sm font-medium text-white mb-1">Font Size:</span>
+                    <select id="fontSizeSelect" onchange="updateFontSize()" class="control-button w-full p-2 rounded text-black">
                         <option value="40">Size: Small</option>
                         <option value="60" selected>Size: Medium</option>
                         <option value="80">Size: Large</option>
@@ -151,68 +230,60 @@
                     </select>
                 </div>
 
-                <h3 class="text-lg font-semibold text-gray-300 border-t border-gray-700 pt-3">Transformations</h3>
+                <h3 class="text-lg font-semibold text-white border-t border-[--color-accent] pt-3">Transformations</h3>
             </div>
 
-            <!-- --- Common Transformation Controls (Visible for both text and image) --- -->
             <div id="transformationControls" class="space-y-4 hidden">
-                <!-- Rotation Slider -->
                 <div>
-                    <label for="rotationSlider" class="block text-sm font-medium text-gray-300">
+                    <label for="rotationSlider" class="block text-sm font-medium text-white">
                         Rotation: <span id="rotationValue">0°</span>
                     </label>
-                    <input type="range" id="rotationSlider" min="0" max="360" step="1" value="0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg" oninput="updateRotation(event.target.value)">
+                    <input type="range" id="rotationSlider" min="0" max="360" step="1" value="0" class="w-full h-2 bg-[--color-accent] rounded-lg appearance-none cursor-pointer range-lg" oninput="updateRotation(event.target.value)">
                 </div>
 
-                <!-- Flip Buttons -->
                 <div class="flex flex-wrap items-center gap-3">
-                    <button id="flipXBtn" onclick="toggleFlip('flipX')" class="control-button px-3 py-2 rounded bg-gray-700 text-gray-300 hover:bg-gray-600">
+                    <button id="flipXBtn" onclick="toggleFlip('flipX')" class="control-button px-3 py-2 rounded">
                         ↔️ Flip X (Mirror)
                     </button>
-                    <button id="flipYBtn" onclick="toggleFlip('flipY')" class="control-button px-3 py-2 rounded bg-gray-700 text-gray-300 hover:bg-gray-600">
+                    <button id="flipYBtn" onclick="toggleFlip('flipY')" class="control-button px-3 py-2 rounded">
                         ↕️ Flip Y
                     </button>
                 </div>
             </div>
 
-            <!-- --- Sticker Controls (Visible if image layer selected) --- -->
             <div id="imageControls" class="space-y-4 hidden">
-                <label for="scaleSlider" class="block text-sm font-medium text-gray-300">
+                <label for="scaleSlider" class="block text-sm font-medium text-white">
                     Item Scale: <span id="scaleValue">100%</span>
                 </label>
-                <input type="range" id="scaleSlider" min="0.2" max="3" step="0.1" value="1.0" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer range-lg" oninput="updateItemScale(event.target.value)">
-                <h3 class="text-lg font-semibold text-gray-300 border-t border-gray-700 pt-3">Transformations</h3>
+                <input type="range" id="scaleSlider" min="0.2" max="3" step="0.1" value="1.0" class="w-full h-2 bg-[--color-accent] rounded-lg appearance-none cursor-pointer range-lg" oninput="updateItemScale(event.target.value)">
+                <h3 class="text-lg font-semibold text-white border-t border-[--color-accent] pt-3">Transformations</h3>
             </div>
 
-            <!-- Always visible controls for selected layer -->
             <div id="commonControls" class="hidden">
-                <button onclick="addTextLayer('NEW TEXT')" class="control-button w-full py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg mb-4">
+                <button onclick="addTextLayer('NEW TEXT')" class="control-button w-full py-2 bg-[--color-accent] hover:bg-opacity-90 text-black font-bold rounded-lg mb-4">
                     ➕ Add New Text Layer
                 </button>
-                <button onclick="deleteSelectedLayer()" class="control-button w-full py-2 rounded bg-red-600 hover:bg-red-700 text-white font-bold">
+                <button onclick="deleteSelectedLayer()" class="control-button w-full py-2 rounded bg-red-500 hover:bg-red-600 text-white font-bold">
                     🗑️ Delete Selected Layer
                 </button>
             </div>
         </div>
     </section>
 
-    <!-- Action Button -->
-    <button onclick="downloadMeme()" class="control-button w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-lg mt-6">
+    <button onclick="downloadMeme()" class="primary-action-button control-button w-full py-3 font-bold rounded-lg shadow-lg mt-6">
         ⬇️ Download BaseMeme
     </button>
 </div>
 
-<!-- Right Panel: Canvas/Meme Preview -->
 <div id="preview" class="w-full lg:w-2/3 flex items-center justify-center p-4 lg:p-8 order-1 lg:order-2">
-    <div class="bg-gray-800 p-2 lg:p-4 rounded-xl shadow-2xl max-w-full max-h-full canvas-container">
-        <canvas id="memeCanvas" class="w-full h-full rounded-lg border-4 border-gray-700 bg-black shadow-xl touch-none"></canvas>
+    <div class="bg-[--color-accent] p-2 lg:p-4 rounded-xl shadow-2xl max-w-full max-h-full canvas-container">
+        <canvas id="memeCanvas" class="w-full h-full rounded-lg border-4 border-[--color-accent] bg-[--color-accent] shadow-xl touch-none"></canvas>
+        <canvas id="drawingCanvas" class="rounded-lg touch-none"></canvas>
     </div>
 </div>
 
 <script>
     // --- DATA DEFINITIONS: USING LOCAL FILE PATHS ---
-
-    // Templates (Backgrounds), from the /memes folder
     const templates = [
         { id: 't1', name: 'meme1.png', url: './memes/meme1.png', ratio: 4/3 },
         { id: 't2', name: 'meme2.png', url: './memes/meme2.png', ratio: 16/9 },
@@ -220,11 +291,8 @@
         { id: 't4', name: 'meme4.png', url: './memes/meme4.png', ratio: 1/1 },
         { id: 't5', name: 'meme5.png', url: './memes/meme5.png', ratio: 9/5 },
         { id: 't6', name: 'meme6.png', url: './memes/meme6.png', ratio: 1/1 },
-        // If you add meme7.png to the /memes folder, register it here:
-        // { id: 't7', name: 'meme7.png', url: './memes/meme7.png', ratio: 1/1 },
     ];
 
-    // Stickers/Items, from the /base folder
     const stickers = [
         { id: 's1', name: 'base1.png', url: './base/base1.png' },
         { id: 's2', name: 'base2.png', url: './base/base2.png' },
@@ -232,53 +300,61 @@
         { id: 's4', name: 'base4.png', url: './base/base4.png' },
         { id: 's5', name: 'base5.png', url: './base/base5.png' },
         { id: 's6', name: 'base6.png', url: './base/base6.png' },
-        // If you add base7.png to the /base folder, register it here:
-        // { id: 's7', name: 'base7.png', url: './base/base7.png' },
     ];
 
-    // Fonts, from the /fonts folder, mapped to CSS font-family names
+    // UPDATED: Added new font as the first option
     const fonts = [
+        { id: 'f4', name: 'font4.otf (Global)', family: 'AppGlobalFont', fallback: 'sans-serif' },
         { id: 'f1', name: 'font1.ttf', family: 'LocalFont1', fallback: 'sans-serif' },
         { id: 'f2', name: 'font2.ttf', family: 'LocalFont2', fallback: 'serif' },
         { id: 'f3', name: 'font3.ttf', family: 'LocalFont3', fallback: 'cursive' }
-        // If you add font4.ttf to the /fonts folder, register it here:
-        // { id: 'f4', name: 'font4.ttf', family: 'LocalFont4', fallback: 'sans-serif' },
     ];
 
     // --- STATE MANAGEMENT ---
-
     const canvas = document.getElementById('memeCanvas');
     const ctx = canvas.getContext('2d');
+    const drawingCanvas = document.getElementById('drawingCanvas');
+    const drawingCtx = drawingCanvas.getContext('2d');
     const MAX_CANVAS_WIDTH = 800;
     const MAX_CANVAS_HEIGHT = 800;
 
     let state = {
         selectedTemplateId: templates[0].id,
-        currentTemplate: null, // Holds the Image object for the background
-        layers: [], // Array of ALL layers (text or image)
+        currentTemplate: null,
+        layers: [],
         selectedLayerIndex: -1,
         isDragging: false,
         dragStartX: 0,
         dragStartY: 0,
-        scaleFactor: 1,
-        stickerImages: {} // Cache for loaded sticker images
+        stickerImages: {},
+        isDrawing: false, // Indicates if the user is currently drawing a line/shape
+        drawingMode: false, // Indicates if the drawing layer is active (pointer-events: auto)
+        drawingColor: '#547cf4', // New Accent Color
+        drawingSize: 15,
+        drawingBrush: 'line', // New default brush
+        lastX: 0,
+        lastY: 0,
+        isCustomBackground: false,
+        uploadMode: 'background'
     };
 
     let initialTemplate = templates.find(t => t.id === state.selectedTemplateId);
 
     // --- INITIALIZATION ---
-
     document.addEventListener('DOMContentLoaded', () => {
         renderTemplateSelector();
         renderStickerSelector();
         renderFontSelector();
         loadTemplateImage(initialTemplate.url, initialTemplate.ratio);
 
-        // Add two default text layers
+        // Initial text layers will now use the new default font (f4)
         addTextLayer('TOP TEXT', MAX_CANVAS_WIDTH / 2, 0.1 * MAX_CANVAS_HEIGHT);
         addTextLayer('BOTTOM TEXT', MAX_CANVAS_WIDTH / 2, 0.9 * MAX_CANVAS_HEIGHT);
 
-        // Ensure fonts are loaded before drawing (best effort for local files)
+        document.getElementById('drawColorInput').value = state.drawingColor;
+        document.getElementById('drawSizeSelect').value = state.drawingSize.toString();
+        document.getElementById('drawBrushSelect').value = state.drawingBrush;
+
         document.fonts.ready.then(() => {
             drawMeme();
         }).catch(e => {
@@ -287,14 +363,44 @@
         });
 
         setupCanvasInteractions();
-        window.addEventListener('resize', calculateScaleFactor);
+        setupDrawingInteractions();
+        window.addEventListener('resize', resizeCanvases);
     });
 
-    function calculateScaleFactor() {
+    function resizeCanvases() {
         const rect = canvas.getBoundingClientRect();
         if (canvas.width > 0 && rect.width > 0) {
-            state.scaleFactor = canvas.width / rect.width;
+            drawingCanvas.width = canvas.width;
+            drawingCanvas.height = canvas.height;
+
+            // Re-apply drawing settings
+            drawingCtx.lineCap = state.drawingBrush === 'line' ? 'round' : 'butt';
+            drawingCtx.lineJoin = state.drawingBrush === 'line' ? 'round' : 'miter';
+            drawingCtx.strokeStyle = state.drawingColor;
+            drawingCtx.lineWidth = state.drawingSize;
+
             drawMeme();
+        }
+    }
+
+    // --- DRAWING MODE TOGGLE (CRITICAL FIX) ---
+    function toggleDrawingMode() {
+        state.drawingMode = !state.drawingMode;
+        const button = document.getElementById('drawingModeToggle');
+
+        if (state.drawingMode) {
+            drawingCanvas.classList.add('active-drawing');
+            button.textContent = '🟢 Toggle Drawing Mode (ON)';
+            button.classList.remove('bg-[--color-primary-action]');
+            button.classList.add('bg-red-500');
+            state.selectedLayerIndex = -1; // Deselect layer when entering drawing mode
+            updateControlPanel();
+            drawMeme();
+        } else {
+            drawingCanvas.classList.remove('active-drawing');
+            button.textContent = '🔴 Toggle Drawing Mode (OFF)';
+            button.classList.add('bg-[--color-primary-action]');
+            button.classList.remove('bg-red-500');
         }
     }
 
@@ -305,7 +411,7 @@
         container.innerHTML = fonts.map(f => `
                 <button
                     onclick="selectFont('${f.id}')"
-                    class="control-button px-3 py-1 text-sm rounded font-medium bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    class="control-button px-3 py-1 text-sm rounded font-medium hover:bg-gray-200"
                     id="font-${f.id}"
                     style="font-family: '${f.family}', ${f.fallback};"
                 >
@@ -319,7 +425,7 @@
         container.innerHTML = templates.map(t => `
                 <div
                     onclick="selectTemplate('${t.id}')"
-                    class="control-button cursor-pointer p-1 rounded-lg border-2 border-gray-700 transition duration-150 ease-in-out ${state.selectedTemplateId === t.id ? 'selected-item' : 'hover:border-blue-500'}"
+                    class="control-button cursor-pointer p-1 rounded-lg border-2 border-transparent transition duration-150 ease-in-out ${state.selectedTemplateId === t.id && !state.isCustomBackground ? 'selected-item' : 'hover:border-[--color-accent] bg-[--color-general-button]'}"
                     data-id="${t.id}"
                 >
                     <img src="${t.url}"
@@ -327,7 +433,7 @@
                          class="w-full h-auto object-cover rounded-md aspect-video"
                          onerror="this.onerror=null; this.src='https://placehold.co/150x85/1f2937/9ca3af?text=/${t.url.split('/')[1]}/Image'"
                     >
-                    <p class="text-xs text-center mt-1 text-gray-300">${t.name}</p>
+                    <p class="text-xs text-center mt-1 text-black">${t.name}</p>
                 </div>
             `).join('');
     }
@@ -336,8 +442,8 @@
         const container = document.getElementById('stickerSelector');
         container.innerHTML = stickers.map(s => `
                 <div
-                    onclick="addStickerLayer('${s.url}', '${s.id}')"
-                    class="control-button cursor-pointer p-1 rounded-lg border-2 border-gray-700 hover:border-blue-500 transition duration-150 ease-in-out"
+                    onclick="addPresetImageLayer('${s.url}', '${s.id}')"
+                    class="control-button cursor-pointer p-1 rounded-lg border-2 border-transparent hover:border-[--color-accent] transition duration-150 ease-in-out bg-[--color-general-button]"
                     data-id="${s.id}"
                 >
                     <img src="${s.url}"
@@ -345,7 +451,7 @@
                          class="w-full h-auto object-cover rounded-md aspect-square"
                          onerror="this.onerror=null; this.src='https://placehold.co/150x150/1f2937/9ca3af?text=/${s.url.split('/')[1]}/Item'"
                     >
-                    <p class="text-xs text-center mt-1 text-gray-300">${s.name}</p>
+                    <p class="text-xs text-center mt-1 text-black">${s.name}</p>
                 </div>
             `).join('');
     }
@@ -369,7 +475,7 @@
 
         if (index >= 0 && layer) {
             commonControls.classList.remove('hidden');
-            transformationControls.classList.remove('hidden'); // Transformations are common
+            transformationControls.classList.remove('hidden');
 
             // Set transformation controls
             document.getElementById('rotationSlider').value = layer.rotation;
@@ -381,7 +487,6 @@
                 layerTypeDisplay.textContent = `Text Layer ${index + 1}`;
                 textControls.classList.remove('hidden');
 
-                // Populate text controls
                 document.getElementById('currentTextContent').value = layer.content;
                 document.getElementById('boldBtn').classList.toggle('selected-item', layer.isBold);
                 document.getElementById('italicBtn').classList.toggle('selected-item', layer.isItalic);
@@ -396,10 +501,9 @@
                 });
 
             } else if (layer.type === 'image') {
-                layerTypeDisplay.textContent = `Sticker/Item Layer ${index + 1}`;
+                layerTypeDisplay.textContent = `Image/Sticker Layer ${index + 1}`;
                 imageControls.classList.remove('hidden');
 
-                // Populate image controls
                 document.getElementById('scaleSlider').value = layer.scale;
                 document.getElementById('scaleValue').textContent = `${Math.round(layer.scale * 100)}%`;
             }
@@ -409,14 +513,132 @@
 
     // --- USER INTERACTIONS (CONTROLS) ---
 
+    function handleImageUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const imageUrl = e.target.result;
+            if (state.uploadMode === 'background') {
+                loadCustomTemplateImage(imageUrl);
+            } else if (state.uploadMode === 'layer') {
+                addImageLayer(imageUrl, file.name);
+            }
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function loadCustomTemplateImage(url) {
+        state.isCustomBackground = true;
+        renderTemplateSelector();
+
+        const img = new Image();
+
+        img.onload = () => {
+            state.currentTemplate = img;
+
+            let targetW = img.width;
+            let targetH = img.height;
+
+            if (targetW > MAX_CANVAS_WIDTH) {
+                targetH = targetH * (MAX_CANVAS_WIDTH / targetW);
+                targetW = MAX_CANVAS_WIDTH;
+            }
+            if (targetH > MAX_CANVAS_HEIGHT) {
+                targetW = targetW * (MAX_CANVAS_HEIGHT / targetH);
+                targetH = MAX_CANVAS_HEIGHT;
+            }
+
+            canvas.width = targetW;
+            canvas.height = targetH;
+
+            canvas.style.width = '100%';
+            canvas.style.height = `auto`;
+            canvas.style.maxWidth = `${targetW}px`;
+            canvas.style.maxHeight = `${targetH}px`;
+
+            resizeCanvases();
+            drawMeme();
+        };
+        img.onerror = () => {
+            state.currentTemplate = null;
+            state.isCustomBackground = false;
+            console.error("Could not load custom image.");
+            canvas.width = 600;
+            canvas.height = 600;
+            resizeCanvases();
+            drawMeme();
+        }
+        img.src = url;
+    }
+
     function selectTemplate(id) {
         state.selectedTemplateId = id;
+        state.isCustomBackground = false;
         const selectedTemplate = templates.find(t => t.id === id);
 
         if (selectedTemplate) {
             renderTemplateSelector();
             loadTemplateImage(selectedTemplate.url, selectedTemplate.ratio);
         }
+    }
+
+    function addPresetImageLayer(url, id) {
+        if (state.stickerImages[id]) {
+            createImageLayerObject(url, state.stickerImages[id]);
+            drawMeme();
+        } else {
+            const img = new Image();
+            img.onload = () => {
+                state.stickerImages[id] = img;
+                createImageLayerObject(url, img);
+                drawMeme();
+            };
+            img.onerror = () => {
+                console.error("Could not load sticker image:", url);
+            }
+            img.src = url;
+        }
+    }
+
+    function addImageLayer(url, name) {
+        const img = new Image();
+        img.onload = () => {
+            createImageLayerObject(url, img, name);
+            drawMeme();
+        };
+        img.onerror = () => {
+            console.error("Could not load uploaded image:", name);
+        }
+        img.src = url;
+    }
+
+    function createImageLayerObject(url, imgObject, name = '') {
+        const newLayer = {
+            type: 'image',
+            id: Date.now(),
+            itemUrl: url,
+            name: name,
+            x: canvas.width / 2,
+            y: canvas.height / 2,
+            scale: 1.0,
+            rotation: 0,
+            flipX: false,
+            flipY: false,
+            imageObject: imgObject,
+            originalW: imgObject.width,
+            originalH: imgObject.height,
+            bbox: { x: 0, y: 0, w: 0, h: 0 }
+        };
+
+        if (newLayer.originalW > canvas.width * 0.8 || newLayer.originalH > canvas.height * 0.8) {
+            newLayer.scale = 0.5;
+        }
+
+        state.layers.push(newLayer);
+        state.selectedLayerIndex = state.layers.length - 1;
+        updateControlPanel();
     }
 
     function addTextLayer(content = 'New Text', x = MAX_CANVAS_WIDTH / 2, y = MAX_CANVAS_HEIGHT / 2) {
@@ -430,10 +652,10 @@
             isItalic: false,
             fontSize: 60,
             color: '#FFFFFF',
-            fontId: fonts[0].id,
-            rotation: 0, // NEW
-            flipX: false, // NEW (Mirror)
-            flipY: false, // NEW
+            fontId: fonts[0].id, // Defaults to the first font in the list (now f4)
+            rotation: 0,
+            flipX: false,
+            flipY: false,
             bbox: { x: 0, y: 0, w: 0, h: 0 }
         };
         state.layers.push(newLayer);
@@ -442,62 +664,14 @@
         drawMeme();
     }
 
-    function addStickerLayer(url, id) {
-        const newLayer = {
-            type: 'image',
-            id: Date.now(),
-            itemUrl: url,
-            x: MAX_CANVAS_WIDTH / 2,
-            y: MAX_CANVAS_HEIGHT / 2,
-            scale: 1.0,
-            rotation: 0, // NEW
-            flipX: false, // NEW (Mirror)
-            flipY: false, // NEW
-            imageObject: null,
-            originalW: 100,
-            originalH: 100,
-            bbox: { x: 0, y: 0, w: 0, h: 0 }
-        };
-
-        state.layers.push(newLayer);
-        state.selectedLayerIndex = state.layers.length - 1;
-        updateControlPanel();
-
-        // Load the image if not already cached
-        if (state.stickerImages[id]) {
-            newLayer.imageObject = state.stickerImages[id];
-            newLayer.originalW = newLayer.imageObject.width;
-            newLayer.originalH = newLayer.imageObject.height;
-            drawMeme();
-        } else {
-            const img = new Image();
-            img.onload = () => {
-                state.stickerImages[id] = img;
-                newLayer.imageObject = img;
-                newLayer.originalW = img.width;
-                newLayer.originalH = img.height;
-                drawMeme();
-            };
-            img.onerror = () => {
-                console.error("Could not load sticker image:", url);
-                state.layers.pop(); // Remove layer if image fails to load
-                state.selectedLayerIndex = -1;
-                updateControlPanel();
-            }
-            img.src = url;
-        }
-    }
-
     function deleteSelectedLayer() {
         if (state.selectedLayerIndex < 0) return;
-
         state.layers.splice(state.selectedLayerIndex, 1);
         state.selectedLayerIndex = -1;
         updateControlPanel();
         drawMeme();
     }
 
-    // --- Transformation Control Handlers ---
     function updateRotation(degrees) {
         const layer = state.layers[state.selectedLayerIndex];
         if (layer) {
@@ -511,12 +685,11 @@
         const layer = state.layers[state.selectedLayerIndex];
         if (layer) {
             layer[axis] = !layer[axis];
-            updateControlPanel(); // Update button visual state
+            updateControlPanel();
             drawMeme();
         }
     }
 
-    // --- Text Control Handlers ---
     function selectFont(fontId) {
         const layer = state.layers[state.selectedLayerIndex];
         if (layer && layer.type === 'text') {
@@ -563,7 +736,6 @@
         }
     }
 
-    // --- Image Control Handler ---
     function updateItemScale(scale) {
         const layer = state.layers[state.selectedLayerIndex];
         if (layer && layer.type === 'image') {
@@ -573,15 +745,76 @@
         }
     }
 
-    // --- CANVAS LOGIC: IMAGE LOADING ---
 
+    // --- DRAWING TOOL HANDLERS (New Brushes) ---
+
+    function updateDrawingColor(color) {
+        state.drawingColor = color;
+        drawingCtx.strokeStyle = color;
+    }
+
+    function updateDrawingSize(size) {
+        state.drawingSize = parseInt(size);
+        drawingCtx.lineWidth = state.drawingSize;
+    }
+
+    function updateDrawingBrush(brush) {
+        state.drawingBrush = brush;
+        // Only set lineCap/lineJoin if it's the standard line brush
+        drawingCtx.lineCap = brush === 'line' ? 'round' : 'butt';
+        drawingCtx.lineJoin = brush === 'line' ? 'round' : 'miter';
+    }
+
+    function clearDrawingLayer() {
+        drawingCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+    }
+
+    // Custom Brush Helper Functions
+    function drawStar(x, y, size) {
+        const r = size * 1.5;
+        const points = 5;
+        const innerR = r / 2;
+
+        drawingCtx.beginPath();
+        for (let i = 0; i < points * 2; i++) {
+            const radius = i % 2 === 0 ? r : innerR;
+            const angle = (Math.PI / points) * i - (Math.PI / 2); // Start point up
+            const drawX = x + radius * Math.cos(angle);
+            const drawY = y + radius * Math.sin(angle);
+            if (i === 0) {
+                drawingCtx.moveTo(drawX, drawY);
+            } else {
+                drawingCtx.lineTo(drawX, drawY);
+            }
+        }
+        drawingCtx.closePath();
+        drawingCtx.fillStyle = state.drawingColor;
+        drawingCtx.fill();
+    }
+
+    function drawSparks(x, y, size) {
+        const numSparks = 5 + Math.floor(size / 5);
+        const scatter = size * 2;
+
+        for (let i = 0; i < numSparks; i++) {
+            const sparkX = x + (Math.random() - 0.5) * scatter;
+            const sparkY = y + (Math.random() - 0.5) * scatter;
+            const sparkSize = Math.random() * (size / 3) + 1;
+
+            drawingCtx.beginPath();
+            drawingCtx.arc(sparkX, sparkY, sparkSize, 0, Math.PI * 2);
+            drawingCtx.fillStyle = state.drawingColor;
+            drawingCtx.fill();
+        }
+    }
+
+    // --- CANVAS LOGIC: IMAGE LOADING ---
     function loadTemplateImage(url, ratio) {
         const img = new Image();
 
         img.onload = () => {
             state.currentTemplate = img;
 
-            // Set canvas size based on loaded image dimensions, constrained by MAX size
             let targetW = img.width;
             let targetH = img.height;
 
@@ -597,51 +830,48 @@
             canvas.width = targetW;
             canvas.height = targetH;
 
-            // Adjust the display size for responsive behavior
             const templateRatio = targetH / targetW;
             canvas.style.width = '100%';
             canvas.style.height = `auto`;
             canvas.style.maxWidth = `${targetW}px`;
             canvas.style.maxHeight = `${targetH}px`;
 
-            calculateScaleFactor();
+            resizeCanvases();
             drawMeme();
         };
         img.onerror = () => {
             state.currentTemplate = null;
             console.error("Could not load template image:", url);
 
-            // Set to a default square size if image fails to load for layout purposes
             canvas.width = 600;
             canvas.height = 600;
             canvas.style.maxWidth = '600px';
             canvas.style.maxHeight = '600px';
 
-            calculateScaleFactor();
+            resizeCanvases();
             drawMeme();
         }
         img.src = url;
     }
 
-    // --- CANVAS LOGIC: DRAWING ---
-
+    // --- DRAWING LOGIC (Updated selection box color and fallback background) ---
     function drawMeme() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         if (state.currentTemplate) {
-            // Draw template scaled to canvas dimensions
             ctx.drawImage(state.currentTemplate, 0, 0, canvas.width, canvas.height);
         } else {
-            ctx.fillStyle = '#1e293b';
+            // UPDATED: Set fallback background to #547cf4
+            ctx.fillStyle = '#547cf4';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#94a3b8';
-            ctx.font = '30px Inter';
+            // UPDATED: Set fallback text color to black for contrast
+            ctx.fillStyle = '#000000';
+            ctx.font = '30px AppGlobalFont, sans-serif'; // Use the new font family
             ctx.textAlign = 'center';
-            ctx.fillText('Template Missing or Failed to Load from /memes/', canvas.width / 2, canvas.height / 2);
+            ctx.fillText('Template Missing or Failed to Load.', canvas.width / 2, canvas.height / 2);
             return;
         }
 
-        // Draw all Layers
         state.layers.forEach((layer, index) => {
             const isSelected = index === state.selectedLayerIndex;
             if (layer.type === 'text') {
@@ -652,38 +882,26 @@
         });
     }
 
-    // --- Draw Image Layer (Sticker) ---
     function drawImageLayer(layer, isSelected) {
         if (!layer.imageObject) return;
 
         const scale = layer.scale;
-        // Scale relative to an 800px base for consistent scaling
         const drawW = layer.originalW * scale * (canvas.width / 800);
         const drawH = layer.originalH * scale * (canvas.height / 600);
 
-        // Bounding box calculation for hit testing (before rotation)
-        // Draw position for un-transformed image
         const x = layer.x - drawW / 2;
         const y = layer.y - drawH / 2;
 
-        // Save the default canvas state
         ctx.save();
-
-        // 1. Move origin to the layer's center point
         ctx.translate(layer.x, layer.y);
-
-        // 2. Apply rotation (convert degrees to radians)
         ctx.rotate(layer.rotation * Math.PI / 180);
 
-        // 3. Apply flip/mirroring
         const flipX = layer.flipX ? -1 : 1;
         const flipY = layer.flipY ? -1 : 1;
         ctx.scale(flipX, flipY);
 
-        // 4. Draw the image at the new origin (which is its center, -drawW/2, -drawH/2)
         ctx.drawImage(layer.imageObject, -drawW / 2, -drawH / 2, drawW, drawH);
 
-        // Update Bounding Box for Hit Testing (using non-rotated, simplified box)
         const padding = 5;
         layer.bbox = {
             x: x - padding,
@@ -695,28 +913,23 @@
             rotation: layer.rotation
         };
 
-        // 5. Draw Selection Box (only if selected)
         if (isSelected) {
-            // Restore scale/rotation, but keep translate for drawing the selection box
             ctx.restore();
             ctx.save();
             ctx.translate(layer.x, layer.y);
             ctx.rotate(layer.rotation * Math.PI / 180);
 
             ctx.setLineDash([5, 5]);
-            ctx.strokeStyle = '#3b82f6';
+            ctx.strokeStyle = '#547cf4'; // Accent Color
             ctx.lineWidth = 3;
 
-            // Draw selection box around the un-flipped/un-rotated visual space (relative to origin)
             ctx.strokeRect(-drawW / 2 - padding, -drawH / 2 - padding, drawW + (padding * 2), drawH + (padding * 2));
             ctx.setLineDash([]);
         }
 
-        // Restore canvas state to defaults
         ctx.restore();
     }
 
-    // --- Draw Text Layer ---
     function drawTextLayer(layer, isSelected) {
         const fontObj = fonts.find(f => f.id === layer.fontId);
         const fontBase = fontObj ? fontObj.family : fonts[0].family;
@@ -724,6 +937,7 @@
         let fontStyle = layer.isBold ? '900' : 'normal';
         if (layer.isItalic) fontStyle += ' italic';
 
+        // Use the selected local font family for the text layer
         ctx.font = `${fontStyle} ${layer.fontSize}px ${fontBase}, ${fontObj.fallback}`;
 
         const maxWidth = canvas.width * 0.95;
@@ -737,7 +951,6 @@
             if (width > maxLineWidth) maxLineWidth = width;
         });
 
-        // Bounding box calculation for hit testing (before rotation)
         const padding = 10;
         layer.bbox = {
             x: layer.x - (maxLineWidth / 2) - padding,
@@ -749,43 +962,32 @@
             rotation: layer.rotation
         };
 
-        // Save the default canvas state
         ctx.save();
-
-        // 1. Move origin to the layer's center point
         ctx.translate(layer.x, layer.y);
-
-        // 2. Apply rotation (convert degrees to radians)
         ctx.rotate(layer.rotation * Math.PI / 180);
 
-        // 3. Apply flip/mirroring
         const flipX = layer.flipX ? -1 : 1;
         const flipY = layer.flipY ? -1 : 1;
         ctx.scale(flipX, flipY);
 
-        // Set drawing styles (applied after scale/rotate)
         ctx.strokeStyle = 'black';
         ctx.lineWidth = Math.floor(layer.fontSize * 0.08);
         ctx.fillStyle = layer.color || 'white';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
-        // Draw the text (relative to the new, translated origin)
         let currentY = -(totalTextHeight / 2) + (lineHeight / 2);
         lines.forEach((line) => {
-            ctx.strokeText(line, 0, currentY); // 0, 0 is the center of the bounding box
+            ctx.strokeText(line, 0, currentY);
             ctx.fillText(line, 0, currentY);
             currentY += lineHeight;
         });
 
-        // 4. Draw Selection Box (only if selected)
         if (isSelected) {
-            // Selection box is drawn *after* scale and rotate, so it follows the text
             ctx.setLineDash([5, 5]);
-            ctx.strokeStyle = '#3b82f6';
+            ctx.strokeStyle = '#547cf4'; // Accent Color
             ctx.lineWidth = 3;
 
-            // Draw selection box relative to the transformed origin (0,0)
             ctx.strokeRect(
                 -maxLineWidth / 2 - padding,
                 -totalTextHeight / 2 - padding,
@@ -795,7 +997,6 @@
             ctx.setLineDash([]);
         }
 
-        // Restore canvas state to defaults
         ctx.restore();
     }
 
@@ -806,9 +1007,8 @@
 
         for (let i = 1; i < words.length; i++) {
             const word = words[i];
-            // Measure text using the correct font settings before transformation is applied
             ctx.save();
-            ctx.font = ctx.font; // Reapply font settings to ctx (needed if called from drawMeme)
+            ctx.font = ctx.font;
             const width = ctx.measureText(currentLine + " " + word).width;
             ctx.restore();
 
@@ -823,10 +1023,11 @@
         return lines;
     }
 
-    // --- CANVAS LOGIC: DRAG & DROP (Unified) ---
 
-    function getEventLocation(event) {
-        const rect = canvas.getBoundingClientRect();
+    // --- CANVAS LOGIC: DRAG & DROP (FIXED getEventLocation for scale) ---
+
+    function getEventLocation(event, element) {
+        const rect = element.getBoundingClientRect();
         let clientX, clientY;
 
         if (event.touches && event.touches.length > 0) {
@@ -839,9 +1040,13 @@
             return null;
         }
 
+        // Calculate scale factor for X and Y axes independently
+        const scaleX = element.width / rect.width;
+        const scaleY = element.height / rect.height;
+
         return {
-            x: (clientX - rect.left) * state.scaleFactor,
-            y: (clientY - rect.top) * state.scaleFactor
+            x: (clientX - rect.left) * scaleX,
+            y: (clientY - rect.top) * scaleY
         };
     }
 
@@ -855,23 +1060,22 @@
         endEvents.forEach(eventName => canvas.addEventListener(eventName, handleEnd, false));
     }
 
-    // Helper function to check if a point is inside a bounding box (without rotation check for simplicity)
     function checkHit(loc, bbox) {
-        // Check based on the simplified, non-rotated box for easier hit detection
+        // Simplified AABB check
         return loc.x >= bbox.x && loc.x <= bbox.x + bbox.w &&
             loc.y >= bbox.y && loc.y <= bbox.y + bbox.h;
     }
 
     function handleStart(event) {
+        // Now works because pointer-events: none is set on drawingCanvas if drawingMode is off
         event.preventDefault();
-        const loc = getEventLocation(event);
+        const loc = getEventLocation(event, canvas);
         if (!loc) return;
 
         let hitIndex = -1;
-        // Iterate layers in reverse order (topmost layer first)
+        // Iterate backwards to check top layers first
         for (let i = state.layers.length - 1; i >= 0; i--) {
             const layer = state.layers[i];
-
             if (checkHit(loc, layer.bbox)) {
                 hitIndex = i;
                 break;
@@ -884,7 +1088,6 @@
 
         if (hitIndex !== -1) {
             state.isDragging = true;
-            // Calculate drag offset from the layer's center point
             state.dragStartX = loc.x - state.layers[hitIndex].x;
             state.dragStartY = loc.y - state.layers[hitIndex].y;
         }
@@ -894,16 +1097,14 @@
         if (!state.isDragging || state.selectedLayerIndex < 0) return;
         event.preventDefault();
 
-        const loc = getEventLocation(event);
+        const loc = getEventLocation(event, canvas);
         if (!loc) return;
 
         const layer = state.layers[state.selectedLayerIndex];
 
-        // Calculate new center point for the layer
         let newX = loc.x - state.dragStartX;
         let newY = loc.y - state.dragStartY;
 
-        // Constrain movement to canvas bounds
         newX = Math.max(0, Math.min(newX, canvas.width));
         newY = Math.max(0, Math.min(newY, canvas.height));
 
@@ -921,20 +1122,96 @@
         }
     }
 
+    // --- DRAWING TOOL LOGIC ---
+
+    function setupDrawingInteractions() {
+        // Initial setup uses state
+        drawingCtx.lineCap = 'round';
+        drawingCtx.lineJoin = 'round';
+        drawingCtx.strokeStyle = state.drawingColor;
+        drawingCtx.lineWidth = state.drawingSize;
+
+        const startEvents = ['mousedown', 'touchstart'];
+        const moveEvents = ['mousemove', 'touchmove'];
+        const endEvents = ['mouseup', 'touchend', 'touchcancel'];
+
+        startEvents.forEach(eventName => drawingCanvas.addEventListener(eventName, startDrawing, false));
+        moveEvents.forEach(eventName => drawingCanvas.addEventListener(eventName, draw, false));
+        endEvents.forEach(eventName => drawingCanvas.addEventListener(eventName, stopDrawing, false));
+    }
+
+    function startDrawing(event) {
+        if (!state.drawingMode) return; // Should be redundant due to pointer-events, but safe to keep.
+        event.preventDefault();
+        state.isDrawing = true;
+
+        const loc = getEventLocation(event, drawingCanvas);
+        if (!loc) return;
+
+        [state.lastX, state.lastY] = [loc.x, loc.y];
+
+        // Handle single click for shape brushes
+        if (state.drawingBrush === 'star') {
+            drawStar(loc.x, loc.y, state.drawingSize);
+            stopDrawing(); // Stars are discrete, single-click operations
+            return;
+        } else if (state.drawingBrush === 'sparks') {
+            drawSparks(loc.x, loc.y, state.drawingSize);
+            stopDrawing(); // Sparks are discrete, single-click operations
+            return;
+        }
+
+        // Prepare for line drawing
+        drawingCtx.beginPath();
+        drawingCtx.moveTo(loc.x, loc.y);
+    }
+
+    function draw(event) {
+        if (!state.isDrawing || state.drawingBrush !== 'line') return;
+        event.preventDefault();
+
+        const loc = getEventLocation(event, drawingCanvas);
+        if (!loc) return;
+
+        drawingCtx.lineTo(loc.x, loc.y);
+        drawingCtx.stroke();
+
+        [state.lastX, state.lastY] = [loc.x, loc.y];
+    }
+
+    function stopDrawing() {
+        state.isDrawing = false;
+        if (state.drawingBrush === 'line') {
+            drawingCtx.closePath();
+        }
+    }
+
+
     // --- DOWNLOAD FUNCTION ---
 
     function downloadMeme() {
         if (!state.currentTemplate) {
-            console.error('Download Error: Please select a Template first.');
+            console.error('Download Error: Please select a Template or upload an image first.');
             return;
         }
 
         const originalSelection = state.selectedLayerIndex;
-        // Clear selection before download to remove boundary box
+        // Temporarily clear selection and draw the meme to remove boundary box
         state.selectedLayerIndex = -1;
         drawMeme();
 
-        const dataURL = canvas.toDataURL('image/png');
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = canvas.width;
+        finalCanvas.height = canvas.height;
+        const finalCtx = finalCanvas.getContext('2d');
+
+        // Draw main meme canvas content
+        finalCtx.drawImage(canvas, 0, 0);
+
+        // Draw the drawing layer content on top
+        finalCtx.drawImage(drawingCanvas, 0, 0);
+
+        const dataURL = finalCanvas.toDataURL('image/png');
 
         // Restore selection state
         state.selectedLayerIndex = originalSelection;
